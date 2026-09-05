@@ -1,0 +1,13 @@
+{
+  "name": "@medikiosk/doctor-portal",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@medikiosk/shared-config": "*",
+    "@medikiosk/shared-types": "*"
+  }
+}

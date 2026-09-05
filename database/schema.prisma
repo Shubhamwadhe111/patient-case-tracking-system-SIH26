@@ -1,0 +1,216 @@
+// =============================================================================
+// MEDIKIOSK PRISMA ORM SCHEMA (PostgreSQL Database Engine)
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
+
+enum SessionStatus {
+  INITIATED
+  CONSENT_GRANTED
+  HISTORY_IN_PROGRESS
+  DOCUMENTS_UPLOADING
+  SUMMARY_READY
+  DOCTOR_REVIEWING
+  COMPLETED
+  CANCELLED
+}
+
+enum DocType {
+  PRESCRIPTION
+  LAB_REPORT
+  DISCHARGE_SUMMARY
+  RADIOLOGY
+  OTHER
+}
+
+enum RedFlagSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum RedFlagCategory {
+  CARDIOVASCULAR
+  RESPIRATORY
+  NEUROLOGICAL
+  ALLERGY
+  VITAL_ABNORMALITY
+  DRUG_INTERACTION
+  OTHER
+}
+
+model User {
+  id                String   @id @default(uuid())
+  role              UserRole @default(PATIENT)
+  fullName          String
+  phone             String?  @unique
+  email             String?  @unique
+  preferredLanguage String   @default("hi")
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  patient ProfilePatient?
+  doctor  ProfileDoctor?
+}
+
+model ProfilePatient {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName     String
+  phone        String
+  age          Int
+  gender       String
+  dob          DateTime?
+  bloodGroup   String?
+  abhaId       String?
+  abhaAddress  String?
+  registeredAt DateTime @default(now())
+
+  sessions          ClinicalSession[]
+  medicalDocuments  MedicalDocument[]
+  clinicalSummaries ClinicalSummary[]
+  consents          ConsentRecord[]
+}
+
+model Department {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  description String?
+  opdBlock    String?
+
+  doctors  ProfileDoctor[]
+  sessions ClinicalSession[]
+}
+
+model ProfileDoctor {
+  id                         String      @id @default(uuid())
+  userId                     String      @unique
+  user                       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  medicalRegistrationNumber String      @unique
+  fullName                   String
+  specialization             String
+  departmentId               String?
+  department                 Department? @relation(fields: [departmentId], references: [id])
+  opdRoomNumber              String
+  isAvailable                Boolean     @default(true)
+
+  sessions ClinicalSession[]
+}
+
+model ClinicalSession {
+  id            String        @id @default(uuid())
+  patientId     String
+  patient       ProfilePatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId      String?
+  doctor        ProfileDoctor? @relation(fields: [doctorId], references: [id])
+  departmentId  String?
+  department    Department?   @relation(fields: [departmentId], references: [id])
+  status        SessionStatus @default(INITIATED)
+  kioskDeviceId String?
+  languageCode  String        @default("hi")
+  startedAt     DateTime      @default(now())
+  completedAt   DateTime?
+
+  responses        HistoryResponse[]
+  medicalDocuments MedicalDocument[]
+  clinicalSummary  ClinicalSummary?
+  redFlags         RedFlag[]
+  consents         ConsentRecord[]
+}
+
+model HistoryResponse {
+  id            String          @id @default(uuid())
+  sessionId     String
+  session       ClinicalSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionId    String
+  questionText  String
+  category      String
+  answerRawText String
+  inputMethod   String          @default("VOICE")
+  timestamp     DateTime        @default(now())
+}
+
+model MedicalDocument {
+  id           String          @id @default(uuid())
+  sessionId    String
+  session      ClinicalSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  patientId    String
+  patient      ProfilePatient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  documentType DocType         @default(PRESCRIPTION)
+  fileName     String
+  fileUrl      String
+  mimeType     String
+  fileSize     Int
+  ocrProcessed Boolean         @default(false)
+  uploadedAt   DateTime        @default(now())
+
+  extractedData ExtractedMedicalData?
+}
+
+model ExtractedMedicalData {
+  id              String          @id @default(uuid())
+  documentId      String          @unique
+  document        MedicalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  rawText         String
+  structuredJson  Json
+  documentDate    DateTime?
+  processedAt     DateTime        @default(now())
+}
+
+model ClinicalSummary {
+  id                   String          @id @default(uuid())
+  sessionId            String          @unique
+  session              ClinicalSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  patientId            String
+  patient              ProfilePatient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  generatedSummaryText String
+  historyJson          Json
+  physicianNotes       String?
+  isDoctorConfirmed    Boolean         @default(false)
+  confirmedAt          DateTime?
+  generatedAt          DateTime        @default(now())
+}
+
+model RedFlag {
+  id                String          @id @default(uuid())
+  sessionId         String
+  session           ClinicalSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  severity          RedFlagSeverity @default(MEDIUM)
+  category          RedFlagCategory @default(OTHER)
+  title             String
+  description       String
+  sourceType        String
+  recommendedAction String?
+  detectedAt        DateTime        @default(now())
+}
+
+model ConsentRecord {
+  id                     String          @id @default(uuid())
+  patientId              String
+  patient                ProfilePatient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  sessionId              String
+  session                ClinicalSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  isAiProcessingAllowed Boolean         @default(true)
+  isDocumentOcrAllowed   Boolean         @default(true)
+  isDoctorSharingAllowed Boolean         @default(true)
+  languageVersion        String          @default("hi")
+  kioskId                String?
+  grantedAt              DateTime        @default(now())
+}

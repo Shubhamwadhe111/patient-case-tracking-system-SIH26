@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@medikiosk/shared-types": ["../../packages/shared-types/src/index.ts"],
+      "@medikiosk/shared-config": ["../../packages/shared-config/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*"]
+}
